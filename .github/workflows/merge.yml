@@ -1,0 +1,44 @@
+ 
+name: Merge Branches
+
+on:
+  push:
+    branches:
+      - branch1
+      - branch2
+      - branch3
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout main branch
+      uses: actions/checkout@v2
+      with:
+        ref: main
+
+    - name: Determine branches with commits
+      id: determine_branches
+      run: |
+        branches_with_commits=()
+        for branch in branch1 branch2 branch3; do
+          if [[ $(git rev-list --count $branch..main) -gt 0 ]]; then
+            branches_with_commits+=($branch)
+          fi
+        done
+        echo "::set-output name=branches::${branches_with_commits[*]}"
+
+    - name: Merge branches
+      if: steps.determine_branches.outputs.branches != ''
+      run: |
+        branches=(${{ steps.determine_branches.outputs.branches }})
+        if [ ${#branches[@]} -ge 2 ]; then
+          for branch in "${branches[@]}"; do
+            git checkout $branch
+            git pull origin $branch
+            git checkout main
+            git merge $branch --no-ff --no-edit
+          done
+          git push origin main
+        fi
